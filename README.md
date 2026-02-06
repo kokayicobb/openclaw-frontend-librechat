@@ -11,49 +11,164 @@ This is a fork of LibreChat customized for OpenClaw.
 
 This repo is a **fork** of LibreChat. To get updates from upstream while keeping your changes:
 
+### Repository Structure
+
+You have **two remotes** configured:
+- `origin` - Your GitHub repo (https://github.com/kokayicobb/openclaw-frontend-librechat)
+- `upstream` - LibreChat official repo (https://github.com/danny-avila/LibreChat)
+
 ### Initial Setup (One-time)
 
 ```bash
-# Add LibreChat as upstream
+# Add LibreChat as upstream (already done)
 git remote add upstream https://github.com/danny-avila/LibreChat.git
+
+# Verify remotes
+git remote -v
 ```
 
-### Getting Updates (Monthly/Quarterly)
+### Your Daily Workflow
 
 ```bash
-# Fetch upstream changes
-git fetch upstream
-
-# Create a branch for the update
-git checkout -b update-from-upstream
-
-# Merge upstream changes
-git merge upstream/main
-
-# Resolve any conflicts
-# Test your application
-# Then merge back to main
+# Make your changes
+git add .
+git commit -m "Your custom changes"
+git push origin main
 ```
 
-### Workflow
+### Getting LibreChat Updates (Monthly/Quarterly)
 
-1. **Your changes**: Work on `main` or feature branches
-2. **Upstream updates**: 
-   - Fetch from upstream
-   - Test in a branch
-   - Merge when ready
-3. **Conflicts**: Handle manually in the merge branch
+**Recommended approach - Test first:**
 
-## Important Files
+```bash
+# 1. Fetch upstream changes
+git fetch upstream
 
-- `.env` - Secrets (not committed)
-- `librechat.yaml` - LibreChat config (customize as needed)
-- Custom frontend changes - Track these carefully
+# 2. Create a test branch
+git checkout -b test-upstream-update
 
-## Security
+# 3. Merge upstream changes
+git merge upstream/main
 
-⚠️ **Never commit:**
-- `.env` files
-- API keys
-- JWT secrets
-- Database files in `data-node/`
+# 4. Resolve any conflicts
+#    - If librechat.yaml conflicts, keep YOUR version
+#    - If docker-compose.yml conflicts, review carefully
+#    - For frontend files, compare and merge manually
+
+# 5. Test everything thoroughly
+#    - Start the application
+#    - Verify OpenClaw/OpenCode/ClaudeCode endpoints work
+#    - Check your customizations are intact
+
+# 6. If tests pass, merge to main
+git checkout main
+git merge test-upstream-update
+git push origin main
+
+# 7. Clean up
+git branch -d test-upstream-update
+```
+
+### What to Watch For During Updates
+
+**Files likely to conflict:**
+- `librechat.yaml` - Contains your custom endpoints (OpenClaw, OpenCode, ClaudeCode)
+- `docker-compose.yml` - May have upstream changes
+- Frontend files - If you've customized UI components
+
+**Your customizations to preserve:**
+- OpenClaw endpoint configuration
+- OpenCode endpoint configuration  
+- ClaudeCode endpoint configuration
+- Custom logos (suelo-logo.svg, opencode-logo.png)
+- Proxy configurations (claude-proxy/, opencode-proxy/)
+
+### If Conflicts Are Too Complex
+
+Since you mentioned most work is "vibe coding":
+
+```bash
+# Skip the merge, start fresh approach:
+
+# 1. Save your custom files somewhere safe
+cp librechat.yaml ~/librechat-backup.yaml
+cp -r claude-proxy/ ~/claude-proxy-backup/
+cp -r opencode-proxy/ ~/opencode-proxy-backup/
+
+# 2. Reset to upstream
+git checkout main
+git fetch upstream
+git reset --hard upstream/main
+
+# 3. Restore your custom files
+cp ~/librechat-backup.yaml ./librechat.yaml
+cp -r ~/claude-proxy-backup/ ./claude-proxy/
+cp -r ~/opencode-proxy-backup/ ./opencode-proxy/
+
+# 4. Commit and push
+git add .
+git commit -m "Reset to upstream + reapply OpenClaw customizations"
+git push origin main --force
+```
+
+## Protected Files (Never Committed)
+
+These are in `.gitignore` and won't be pushed to GitHub:
+- `.env` - All API keys, secrets, and credentials
+- `data-node/` - MongoDB database files
+- `meili_data/` - Search index data
+
+## Important Files to Track
+
+- `librechat.yaml` - LibreChat config (keep your custom endpoints)
+- `docker-compose.yml` - Docker setup
+- `claude-proxy/proxy.py` - Claude proxy configuration
+- `opencode-proxy/proxy.py` - OpenCode proxy configuration
+- `suelo-logo.svg` - Custom logo
+- `opencode-logo.png` - Custom logo
+
+## Security Checklist
+
+⚠️ **Before every push, verify:**
+- [ ] `.env` is NOT in the commit
+- [ ] No API keys in any committed files
+- [ ] `data-node/` directory is NOT committed
+- [ ] No `*.key`, `*.pem`, or `*.secret` files committed
+
+## Quick Reference
+
+```bash
+# Check what's being committed (always do this before push!)
+git status
+
+# Check if sensitive files are properly ignored
+git check-ignore -v .env data-node/
+
+# View all remotes
+git remote -v
+
+# Fetch latest from LibreChat (without merging)
+git fetch upstream
+
+# See what changed in upstream
+git log upstream/main --oneline -10
+```
+
+## Troubleshooting
+
+**"Permission denied" when pushing:**
+- Make sure you're authenticated with GitHub CLI: `gh auth status`
+- Or use HTTPS with a personal access token
+
+**"Merge conflict in librechat.yaml":**
+- Keep YOUR version (with OpenClaw/OpenCode/ClaudeCode endpoints)
+- Check if upstream added new features you want
+
+**"Accidentally committed .env":**
+```bash
+# Remove from git but keep the file
+git rm --cached .env
+git commit -m "Remove .env from tracking"
+git push origin main
+# Then rotate your secrets immediately!
+```
