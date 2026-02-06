@@ -1,0 +1,41 @@
+services:
+  librechat:
+    image: ghcr.io/danny-avila/librechat-dev:latest
+    container_name: librechat
+    ports:
+      - "0.0.0.0:3210:3080"
+    env_file:
+      - .env
+    environment:
+      - MEILI_SYNC_THRESHOLD=1
+      - MEILI_SYNC_INTERVAL_MS=30000
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml
+      - ./suelo-logo.svg:/app/client/public/images/suelo-logo.svg:ro
+      - ./opencode-logo.png:/app/client/public/images/opencode-logo.png:ro
+    depends_on:
+      - mongodb
+      - meilisearch
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:8.0
+    container_name: librechat-mongodb
+    command: mongod --noauth
+    volumes:
+      - ./data-node:/data/db
+    restart: unless-stopped
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    container_name: librechat-meilisearch
+    ports:
+      - "127.0.0.1:7700:7700"
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=ko-librechat-search-2026-key
+    volumes:
+      - ./meili_data:/meili_data
+    restart: unless-stopped
