@@ -111,6 +111,32 @@ git commit -m "Reset to upstream + reapply OpenClaw customizations"
 git push origin main --force
 ```
 
+## Sandpack Self-Hosted Code Execution
+
+LibreChat uses Sandpack for code artifacts. This setup includes a self-hosted bundler for better privacy and reliability.
+
+### Setup
+
+The Sandpack bundler files are already included in `sandpack-bundler/` and served via nginx.
+
+### Configuration
+
+Add to your `.env` file:
+```bash
+SANDPACK_BUNDLER_URL=http://localhost:3210/sandpack/
+```
+
+### After Docker Rebuilds
+
+Vite generates new hashed filenames in `index.html` after each build. To update:
+
+```bash
+# After rebuilding LibreChat image
+./update-index-html.sh
+```
+
+This copies the fresh `index.html` from the running container.
+
 ## Protected Files (Never Committed)
 
 These are in `.gitignore` and won't be pushed to GitHub:

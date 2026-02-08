@@ -6,6 +6,7 @@ services:
       - "0.0.0.0:3210:80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./sandpack-bundler:/var/www/sandpack-bundler:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
