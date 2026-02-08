@@ -22,15 +22,86 @@ import re
 import time
 import uuid
 from glob import glob
+from pathlib import Path
 
 import httpx
+import websockets
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
 
 app = FastAPI()
 
 OPENCLAW_BASE = os.getenv("OPENCLAW_BASE_URL", "http://127.0.0.1:18789")
+OPENCLAW_WS = os.getenv("OPENCLAW_WS_URL", "ws://127.0.0.1:18789")
 OPENCLAW_LOG_DIR = os.getenv("OPENCLAW_LOG_DIR", "/tmp/openclaw")
+
+
+def _load_gateway_token() -> str:
+    """Load gateway auth token from env or openclaw.json."""
+    token = os.getenv("OPENCLAW_GATEWAY_TOKEN")
+    if token:
+        return token
+    try:
+        cfg = json.loads(Path.home().joinpath(".openclaw/openclaw.json").read_text())
+        return cfg["gateway"]["auth"]["token"]
+    except Exception:
+        return ""
+
+
+GATEWAY_TOKEN = _load_gateway_token()
+
+
+async def abort_openclaw_session(session_key: str) -> dict:
+    """Connect to OpenClaw gateway via WS and send chat.abort RPC."""
+    try:
+        async with websockets.connect(OPENCLAW_WS, open_timeout=5) as ws:
+            # Read the connect.challenge event first
+            await asyncio.wait_for(ws.recv(), timeout=5)
+
+            # Handshake: send connect request
+            connect_id = uuid.uuid4().hex[:8]
+            await ws.send(json.dumps({
+                "type": "req",
+                "id": connect_id,
+                "method": "connect",
+                "params": {
+                    "minProtocol": 3,
+                    "maxProtocol": 3,
+                    "client": {
+                        "id": "openclaw-probe",
+                        "version": "1.0.0",
+                        "platform": "python",
+                        "mode": "probe",
+                    },
+                    "auth": {"token": GATEWAY_TOKEN},
+                },
+            }))
+            # Read until we get our connect response (skip broadcast events)
+            while True:
+                msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+                if msg.get("type") == "res" and msg.get("id") == connect_id:
+                    if not msg.get("ok"):
+                        return {"ok": False, "error": f"connect failed: {msg.get('error')}"}
+                    break
+
+            # Send chat.abort
+            abort_id = uuid.uuid4().hex[:8]
+            await ws.send(json.dumps({
+                "type": "req",
+                "id": abort_id,
+                "method": "chat.abort",
+                "params": {"sessionKey": session_key},
+            }))
+            # Read until we get our abort response (skip broadcast events)
+            while True:
+                msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+                if msg.get("type") == "res" and msg.get("id") == abort_id:
+                    payload = msg.get("payload", {})
+                    return {"ok": payload.get("ok", False), "aborted": payload.get("aborted", False),
+                            "runIds": payload.get("runIds", [])}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 # Retry config for gateway restarts
 MAX_RETRIES = 3
@@ -132,7 +203,7 @@ async def _tail_log_for_tools(
         pass
 
 
-async def _stream_with_tools(request_body: dict, headers: dict):
+async def _stream_with_tools(request_body: dict, headers: dict, session_key: str | None = None):
     """Forward request to OpenClaw, concurrently tail log for tools, merge into SSE."""
     model = request_body.get("model", "unknown")
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
@@ -375,11 +446,29 @@ async def _stream_with_tools(request_body: dict, headers: dict):
                 await tail_task
             except asyncio.CancelledError:
                 pass
+        # Passive abort: if stream didn't complete normally, abort the OpenClaw run
+        if not success and session_key:
+            asyncio.create_task(abort_openclaw_session(session_key))
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+class AbortRequest(BaseModel):
+    session_key: str
+
+
+@app.post("/v1/chat/abort")
+async def chat_abort(request: Request):
+    """Abort an OpenClaw session. Accepts session_key in body or x-openclaw-session-key header."""
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    session_key = body.get("session_key") or request.headers.get("x-openclaw-session-key")
+    if not session_key:
+        raise HTTPException(status_code=400, detail="session_key required (body or x-openclaw-session-key header)")
+    result = await abort_openclaw_session(session_key)
+    return JSONResponse(content=result)
 
 
 @app.get("/v1/models")
@@ -425,7 +514,7 @@ async def chat_completions(request: Request):
                 raise HTTPException(status_code=502, detail="Gateway unavailable after retries")
 
     return StreamingResponse(
-        _stream_with_tools(body, fwd_headers),
+        _stream_with_tools(body, fwd_headers, session_key=session_key),
         media_type="text/event-stream",
     )
 

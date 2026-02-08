@@ -28,8 +28,10 @@ services:
       - ./suelo-logo.svg:/app/client/public/images/suelo-logo.svg:ro
       - ./opencode-logo.png:/app/client/public/images/opencode-logo.png:ro
       - ./developer-logo.svg:/app/client/public/images/developer-logo.svg:ro
+      - ./kiro.svg:/app/client/public/images/kiro.svg:ro
       - ./index.html:/app/client/dist/index.html:ro
       - ./custom.css:/app/client/dist/custom.css:ro
+      - ./agents-index-patched.js:/app/api/server/routes/agents/index.js:ro
     depends_on:
       - mongodb
       - meilisearch
