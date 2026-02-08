@@ -1,0 +1,10 @@
+/* Custom styles for OpenClaw tool activity in thinking blocks */
+
+/* Target the thinking content paragraph — italic monospace for tool activity */
+.bg-surface-tertiary > p.whitespace-pre-wrap {
+  font-style: italic;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', monospace;
+  font-size: 0.85em;
+  letter-spacing: 0.01em;
+  opacity: 0.85;
+}

@@ -1,0 +1,41 @@
+# Multi-stage build for LibreChat with Suelo custom panels
+FROM node:20-alpine AS builder
+
+# Install git and other dependencies
+RUN apk add --no-cache git python3 make g++
+
+# Clone LibreChat source
+WORKDIR /app
+RUN git clone --depth 1 --branch main https://github.com/danny-avila/LibreChat.git .
+
+# Copy custom components
+COPY client/src/components/SidePanel/Skills ./client/src/components/SidePanel/Skills
+COPY client/src/components/SidePanel/Tools ./client/src/components/SidePanel/Tools
+COPY client/src/components/SidePanel/SueloMemory ./client/src/components/SidePanel/SueloMemory
+COPY client/src/components/SidePanel/CronJobs ./client/src/components/SidePanel/CronJobs
+COPY client/src/hooks/Nav/useSideNavLinks.ts ./client/src/hooks/Nav/useSideNavLinks.ts
+
+# Install dependencies
+RUN npm ci
+
+# Add react-markdown for Suelo custom panels
+RUN cd client && npm install react-markdown
+
+# Build all packages then client (data-provider → data-schemas → api → client-package → client)
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+RUN npm run frontend
+
+# Production stage - use official LibreChat prod image as base
+FROM ghcr.io/danny-avila/librechat-dev:latest
+
+# Copy built client from builder
+COPY --from=builder /app/client/dist /app/client/dist
+
+# Keep the source files for hot-reload in dev mode (if needed)
+COPY --from=builder /app/client/src/components/SidePanel/Skills /app/client/src/components/SidePanel/Skills
+COPY --from=builder /app/client/src/components/SidePanel/Tools /app/client/src/components/SidePanel/Tools
+COPY --from=builder /app/client/src/components/SidePanel/SueloMemory /app/client/src/components/SidePanel/SueloMemory
+COPY --from=builder /app/client/src/components/SidePanel/CronJobs /app/client/src/components/SidePanel/CronJobs
+COPY --from=builder /app/client/src/hooks/Nav/useSideNavLinks.ts /app/client/src/hooks/Nav/useSideNavLinks.ts
+
+WORKDIR /app

@@ -1,9 +1,22 @@
 services:
-  librechat:
-    image: ghcr.io/danny-avila/librechat-dev:latest
-    container_name: librechat
+  nginx:
+    image: nginx:alpine
+    container_name: librechat-nginx
     ports:
-      - "0.0.0.0:3210:3080"
+      - "0.0.0.0:3210:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - librechat
+    restart: unless-stopped
+
+  librechat:
+    image: librechat-suelo:latest
+    container_name: librechat
+    expose:
+      - "3080"
     env_file:
       - .env
     environment:
@@ -13,6 +26,9 @@ services:
       - ./librechat.yaml:/app/librechat.yaml
       - ./suelo-logo.svg:/app/client/public/images/suelo-logo.svg:ro
       - ./opencode-logo.png:/app/client/public/images/opencode-logo.png:ro
+      - ./developer-logo.svg:/app/client/public/images/developer-logo.svg:ro
+      - ./index.html:/app/client/dist/index.html:ro
+      - ./custom.css:/app/client/dist/custom.css:ro
     depends_on:
       - mongodb
       - meilisearch

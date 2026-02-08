@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 app = FastAPI()
 
-OPENCODE_BASE = os.getenv("OPENCODE_BASE_URL", "http://localhost:4096")
+OPENCODE_BASE = os.getenv("OPENCODE_BASE_URL", "http://localhost:8080")
 PROXY_KEY = os.getenv("OPENCODE_PROXY_KEY", "")
 
 MODEL_MAP = {

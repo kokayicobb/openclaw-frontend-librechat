@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <rect width="100" height="100" rx="20" fill="#1a1a2e"/>
+  <text x="50" y="62" font-family="monospace" font-size="40" font-weight="bold" text-anchor="middle" fill="none">
+    <tspan stroke="url(#g)" stroke-width="3">&lt;</tspan>
+    <tspan stroke="#e91e8a" stroke-width="3">/</tspan>
+    <tspan stroke="url(#g)" stroke-width="3">&gt;</tspan>
+  </text>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4facfe"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+</svg>
